@@ -115,6 +115,8 @@ The remediation changed the following groups of files:
 | UI/data correctness | `src/components/Layout.tsx`, `src/components/admin/Dashboard.tsx`, `src/components/admin/StaffManagement.tsx`, `src/components/admin/ServiceManagement.tsx`, `src/components/shared/PatientManagement.tsx`, `src/components/doctor/MedicalHistoryManagement.tsx`, `src/index.css`, `index.html` |
 | Tooling | `package.json`, `package-lock.json` |
 | Documentation | `README.md`, `SETUP_GUIDE.md`, `TESTING_GUIDE.md`, `FIXES_APPLIED.md`, `MIGRATION_SUMMARY.md`, `PRD.md`, `TROUBLESHOOTING.md` |
+| Sale preparation | `BUYER_HANDOFF.md`, `DEPLOYMENT_RUNBOOK.md`, `LISTING_COPY.md`, `SALE_PACKAGE_CHECKLIST.md`, `HISTORY_REMEDIATION.md` |
+| Demo package | `supabase/demo/DEMO_ACCOUNTS.md`, `supabase/demo/provision_demo_profiles.sql`, `supabase/demo/seed_demo_data.sql` |
 | Audit evidence | `AUDIT_BASELINE.md`, `LIVE_DEPLOYMENT_AUDIT.md`, `LOCAL_SMOKE_TEST.md`, `AUDIT_REPORT.md` |
 
 ## What to do before listing for sale
@@ -124,6 +126,10 @@ First, rotate or revoke the historical Supabase credentials and review whether t
 ## Final verdict
 
 The cleanup materially improves the repository and makes it **realistically listable as a $500–$1,000 side-project codebase**, provided the listing is transparent and the buyer receives a proper deployment handoff. It is **not yet ready to be presented as a production healthcare deployment**. The remaining work is primarily buyer-owned backend verification, credential rotation/history hygiene, deployment, privacy/operational review, and clear positioning rather than a rebuild.
+
+## Sale-preparation layer completed
+
+The repository now includes a buyer handoff runbook, a reproducible deployment runbook, a pre-listing checklist, honest marketplace listing copy, a Git-history remediation plan, synthetic demo-account instructions, a secure demo-profile provisioning script, and fictional patient/appointment/payment/medical-history seed data. These materials deliberately contain no passwords or service-role keys. The demo SQL must only be run in a dedicated buyer/demo Supabase project after the synthetic Auth users exist.
 
 ## References
 

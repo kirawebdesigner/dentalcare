@@ -79,6 +79,12 @@ This application handles sensitive clinical and financial information. Before us
 | `firebase.json` | Firebase Hosting configuration |
 | `SETUP_GUIDE.md` | Detailed environment and deployment handoff |
 | `TESTING_GUIDE.md` | Manual verification checklist |
+| `BUYER_HANDOFF.md` | Ownership-transfer and buyer acceptance runbook |
+| `DEPLOYMENT_RUNBOOK.md` | Reproducible Supabase/Firebase redeployment steps |
+| `LISTING_COPY.md` | Honest marketplace listing copy |
+| `SALE_PACKAGE_CHECKLIST.md` | Pre-listing security, demo, deployment, and sales checklist |
+| `HISTORY_REMEDIATION.md` | Safe Git-history exposure remediation plan |
+| `supabase/demo/` | Synthetic accounts and fictional demo-data package |
 | `AUDIT_REPORT.md` | Latest repository and deployment audit |
 
 ## License and ownership
