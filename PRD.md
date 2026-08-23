@@ -22,22 +22,21 @@ To provide a centralized, secure, and user-friendly solution for dental clinics 
 - Persistent session management
 - Secure logout functionality
 
-**Admin Credentials (Default):**
-- Email: your-admin-email@example.com
-- Password: use-a-unique-password
+**Administrator provisioning:**
+No default administrator credentials are stored in the repository. Create the first administrator through Supabase Auth with a buyer-controlled password, then create the matching `profiles` row with the `admin` role.
 
 ### 2. Staff Management
 **Admin Only**
-- Create and manage staff accounts with role assignment
+- Create staff accounts with role assignment through the administrator-only Edge Function
 - View all staff members and their profiles
-- Update staff information
+- Staff edit, disable, deletion, and password-reset workflows are not currently included
 - Track staff creation timestamps
 
 ### 3. Patient Management
 **Admin & Receptionist**
-- Add new patients with comprehensive information (name, phone, DOB, address, notes)
-- View all patients in the system
-- Update patient details
+- Add new patients with the currently exposed fields (name, phone, DOB, address, notes)
+- View patients according to role-based RLS policies
+- Patient edit and deletion workflows are not currently included
 - Search and filter patients
 - Track patient creation and modification history
 
