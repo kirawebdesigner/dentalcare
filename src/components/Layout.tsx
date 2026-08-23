@@ -342,7 +342,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
         {/* Footer */}
         <footer className="mt-6 text-center text-xs text-gray-400">
-          <p>© 2025 DentalCare Practice Management • Created by Kirubel Daniel</p>
+          <p>© 2026 DentalCare Practice Management • Created by Kirubel Daniel</p>
         </footer>
       </div>
     </div>
