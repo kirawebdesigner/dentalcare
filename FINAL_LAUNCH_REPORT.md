@@ -25,7 +25,7 @@ The expected history is preserved and the final polish commit is present on `mai
 | Footer polish commit | `00e3fbd` — `Polish authenticated app footer year` |
 | Branch state at final packaging start | `main` tracking `origin/main` |
 
-The final packaging commit will add this report, the screenshot assets, the screenshot index, and the SideProjectors listing artifact without rewriting history or force-pushing.
+Commit `37e9e1d` adds this report, the screenshot assets, the screenshot index, and the updated SideProjectors listing artifact without rewriting history or force-pushing.
 
 ## Requested polish fixes
 

@@ -13,7 +13,9 @@
 | Developer setup | `README.md`, `SETUP_GUIDE.md`, `DEPLOYMENT_RUNBOOK.md` | Installation and redeployment instructions |
 | QA | `TESTING_GUIDE.md` and `SALE_PACKAGE_CHECKLIST.md` | Manual workflow, role, responsive, and pre-listing verification |
 | Audit/security | `AUDIT_REPORT.md`, `FIXES_APPLIED.md`, `HISTORY_REMEDIATION.md` | Findings, remediation history, and historical-exposure guidance |
-| Listing/handoff | `LISTING_COPY.md` and `BUYER_HANDOFF.md` | Honest sales copy and ownership-transfer procedure |
+| Listing/handoff | `LISTING_COPY.md` and `BUYER_HANDOFF.md` | SideProjectors-ready sales copy and ownership-transfer procedure |
+
+| Evidence | `FINAL_LAUNCH_REPORT.md`, `FINAL_SALE_PREP_NOTES.md`, and `sale-assets/screenshots/` | Final live verification record and clean role-based product screenshots |
 
 ## Buyer-owned items not included automatically
 
@@ -25,4 +27,4 @@ The package does not include real patient data, real clinic credentials, a servi
 
 ## Archive
 
-The clean repository archive was generated from commit `27dd116` as `/home/ubuntu/dentalcare-sale-package.zip`. It contains the source tree and sale-preparation materials but excludes Git history, `node_modules`, local environment files, and build artifacts.
+The final clean repository archive is generated from the final package commit as `/home/ubuntu/dentalcare-sale-package-final.zip`. It contains the source tree, documentation, and screenshot evidence but excludes Git history, `node_modules`, local environment files, and build artifacts.
