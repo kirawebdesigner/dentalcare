@@ -23,13 +23,14 @@ export function AppointmentManagement() {
 
   useEffect(() => {
     fetchData();
+  // Appointment data is refreshed when the authenticated profile changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const fetchData = async () => {
     try {
-      const [appointmentsRes, patientsRes, servicesRes, doctorsRes] = await Promise.all([
-        supabase
-          .from('appointments')
+      const appointmentsQuery = supabase
+        .from('appointments')
           .select(`
             *,
             patient:patients(*),
@@ -37,7 +38,14 @@ export function AppointmentManagement() {
             service:services(*)
           `)
           .order('appointment_date', { ascending: false })
-          .order('appointment_time', { ascending: false }),
+        .order('appointment_time', { ascending: false });
+
+      if (profile?.role === 'doctor' && user?.id) {
+        appointmentsQuery.eq('doctor_id', user.id);
+      }
+
+      const [appointmentsRes, patientsRes, servicesRes, doctorsRes] = await Promise.all([
+        appointmentsQuery,
         supabase.from('patients').select('*').order('full_name'),
         supabase.from('services').select('*').eq('is_active', true).order('name'),
         supabase.from('profiles').select('*').eq('role', 'doctor').order('full_name'),
@@ -48,21 +56,13 @@ export function AppointmentManagement() {
       if (servicesRes.error) throw servicesRes.error;
       if (doctorsRes.error) throw doctorsRes.error;
 
-      let filteredAppointments = appointmentsRes.data || [];
-
-      if (profile?.role === 'doctor') {
-        filteredAppointments = filteredAppointments.filter(
-          (apt) => apt.doctor_id === user?.id
-        );
-      }
-
-      setAppointments(filteredAppointments);
+      setAppointments(appointmentsRes.data || []);
       setPatients(patientsRes.data || []);
       setServices(servicesRes.data || []);
       setDoctors(doctorsRes.data || []);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
-      alert(error.message || 'Failed to load appointments. Please try again.');
+    } catch (error: unknown) {
+      console.error('Error fetching appointment data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to load appointments. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -91,9 +91,9 @@ export function AppointmentManagement() {
       });
       setShowForm(false);
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating appointment:', error);
-      alert(error.message || 'Failed to create appointment. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to create appointment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -108,9 +108,9 @@ export function AppointmentManagement() {
 
       if (error) throw error;
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating appointment status:', error);
-      alert(error.message || 'Failed to update appointment status. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to update appointment status. Please try again.');
     }
   };
 
@@ -118,6 +118,10 @@ export function AppointmentManagement() {
     switch (status) {
       case 'scheduled':
         return 'bg-blue-100 text-blue-700';
+      case 'confirmed':
+        return 'bg-cyan-100 text-cyan-700';
+      case 'in-progress':
+        return 'bg-violet-100 text-violet-700';
       case 'completed':
         return 'bg-green-100 text-green-700';
       case 'cancelled':
@@ -226,6 +230,7 @@ export function AppointmentManagement() {
               </label>
               <input
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={formData.appointment_date}
                 onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
                 required
@@ -280,7 +285,7 @@ export function AppointmentManagement() {
       <div className="bg-white rounded-lg shadow-md border border-pink-100 p-4">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-700">Filter:</span>
-          {['all', 'scheduled', 'completed', 'cancelled'].map((status) => (
+          {['all', 'scheduled', 'confirmed', 'in-progress', 'completed', 'cancelled', 'no-show'].map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}

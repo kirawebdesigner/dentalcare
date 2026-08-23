@@ -4,9 +4,7 @@
   This SQL file sets up the complete dental clinic management system:
   1. Drops all existing tables and recreates them with proper structure
   2. Creates RLS policies for role-based access control
-  3. Creates helper functions (verify_password, create_staff_member)
-  4. Bootstraps the admin user (admin@clinic.com / admin123)
-  5. Seeds sample dental services
+  3. Seeds sample dental services
   
   Run this script in Supabase SQL Editor for a fresh setup.
   
@@ -23,9 +21,6 @@ DROP TABLE IF EXISTS appointments CASCADE;
 DROP TABLE IF EXISTS services CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS profiles CASCADE;
-
-DROP FUNCTION IF EXISTS verify_password(text, text) CASCADE;
-DROP FUNCTION IF EXISTS create_staff_member(text, text, text, text, text) CASCADE;
 
 -- ============================================================================
 -- SECTION 2: CREATE TABLES
@@ -102,6 +97,7 @@ CREATE TABLE payments (
   discount numeric DEFAULT 0 CHECK (discount >= 0),
   tax numeric DEFAULT 0 CHECK (tax >= 0),
   total numeric GENERATED ALWAYS AS (amount - discount + tax) STORED,
+  CONSTRAINT payments_total_nonnegative CHECK (amount - discount + tax >= 0),
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'paid', 'refunded', 'cancelled')),
   payment_method text CHECK (payment_method IN ('cash', 'card', 'bank_transfer', 'insurance', 'other')),
   payment_reference text,
@@ -134,7 +130,56 @@ CREATE TABLE medical_history (
 );
 
 -- ============================================================================
--- SECTION 3: CREATE INDEXES FOR PERFORMANCE
+-- SECTION 3: MAINTAIN DATA INTEGRITY
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER profiles_set_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER patients_set_updated_at
+  BEFORE UPDATE ON patients
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER services_set_updated_at
+  BEFORE UPDATE ON services
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER appointments_set_updated_at
+  BEFORE UPDATE ON appointments
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER payments_set_updated_at
+  BEFORE UPDATE ON payments
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER medical_history_set_updated_at
+  BEFORE UPDATE ON medical_history
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE FUNCTION validate_payment_appointment_patient()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.appointment_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM appointments
+    WHERE appointments.id = NEW.appointment_id
+    AND appointments.patient_id = NEW.patient_id
+  ) THEN
+    RAISE EXCEPTION 'Payment appointment must belong to the selected patient';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER payments_validate_appointment_patient
+  BEFORE INSERT OR UPDATE ON payments
+  FOR EACH ROW EXECUTE FUNCTION validate_payment_appointment_patient();
+
+-- ============================================================================
+-- SECTION 4: CREATE INDEXES FOR PERFORMANCE
 -- ============================================================================
 
 -- Profiles indexes
@@ -165,7 +210,7 @@ CREATE INDEX idx_medical_history_appointment_id ON medical_history(appointment_i
 CREATE INDEX idx_medical_history_recorded_at ON medical_history(recorded_at);
 
 -- ============================================================================
--- SECTION 4: ENABLE ROW LEVEL SECURITY
+-- SECTION 5: ENABLE ROW LEVEL SECURITY
 -- ============================================================================
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -176,7 +221,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medical_history ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
--- SECTION 5: RLS POLICIES
+-- SECTION 6: RLS POLICIES
 -- ============================================================================
 
 -- Helper function to check if current user is admin
@@ -225,12 +270,8 @@ CREATE POLICY "Users can view own profile"
   TO authenticated
   USING (id = auth.uid());
 
--- Users can update their own profile (except role)
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+-- Profile changes are administrator-managed. There is intentionally no
+-- self-update policy, which prevents a user from changing their own role.
 
 -- Admins can view all profiles
 CREATE POLICY "Admin can view all profiles"
@@ -260,11 +301,34 @@ CREATE POLICY "Admin can delete profiles"
 -- PATIENTS POLICIES
 -- -------------------------
 
--- All staff can view patients
-CREATE POLICY "Staff can view patients"
+-- Administrators and receptionists can view the full patient directory.
+CREATE POLICY "Admin and receptionist can view patients"
   ON patients FOR SELECT
   TO authenticated
-  USING (is_staff());
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'receptionist')
+    )
+  );
+
+-- Doctors can view patients assigned through their appointments.
+CREATE POLICY "Doctors can view assigned patients"
+  ON patients FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role = 'doctor'
+    )
+    AND EXISTS (
+      SELECT 1 FROM appointments
+      WHERE appointments.patient_id = patients.id
+      AND appointments.doctor_id = auth.uid()
+    )
+  );
 
 -- Admin and receptionist can insert patients
 CREATE POLICY "Admin and receptionist can insert patients"
@@ -326,11 +390,23 @@ CREATE POLICY "Admin can delete services"
 -- APPOINTMENTS POLICIES
 -- -------------------------
 
--- All staff can view appointments
-CREATE POLICY "Staff can view appointments"
+-- Administrators and receptionists can view the full appointment schedule.
+CREATE POLICY "Admin and receptionist can view appointments"
   ON appointments FOR SELECT
   TO authenticated
-  USING (is_staff());
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'receptionist')
+    )
+  );
+
+-- Doctors can view only appointments assigned to them.
+CREATE POLICY "Doctors can view assigned appointments"
+  ON appointments FOR SELECT
+  TO authenticated
+  USING (doctor_id = auth.uid() AND is_doctor_or_admin());
 
 -- Admin and receptionist can create appointments
 CREATE POLICY "Admin and receptionist can insert appointments"
@@ -344,11 +420,24 @@ CREATE POLICY "Admin and receptionist can insert appointments"
     )
   );
 
--- Admin, receptionist, and doctors can update appointments
-CREATE POLICY "Staff can update appointments"
+-- Administrators and receptionists can update the appointment schedule.
+CREATE POLICY "Admin and receptionist can update appointments"
   ON appointments FOR UPDATE
   TO authenticated
-  USING (is_staff());
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'receptionist')
+    )
+  );
+
+-- Doctors may update records assigned to them, but cannot reassign the doctor.
+CREATE POLICY "Doctors can update assigned appointments"
+  ON appointments FOR UPDATE
+  TO authenticated
+  USING (doctor_id = auth.uid() AND is_doctor_or_admin())
+  WITH CHECK (doctor_id = auth.uid() AND is_doctor_or_admin());
 
 -- Only admin can delete appointments
 CREATE POLICY "Admin can delete appointments"
@@ -406,23 +495,74 @@ CREATE POLICY "Admin can delete payments"
 -- MEDICAL HISTORY POLICIES
 -- -------------------------
 
--- Doctors and admin can view medical history
+-- Administrators can view all medical history. Doctors can view records for
+-- patients assigned through their appointments or recorded by themselves.
 CREATE POLICY "Doctors and admin can view medical history"
   ON medical_history FOR SELECT
   TO authenticated
-  USING (is_doctor_or_admin());
+  USING (
+    is_admin()
+    OR (
+      EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid()
+        AND role = 'doctor'
+      )
+      AND (
+        recorded_by = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM appointments
+          WHERE appointments.id = medical_history.appointment_id
+          AND appointments.doctor_id = auth.uid()
+        )
+      )
+    )
+  );
 
--- Doctors and admin can insert medical history
+-- Administrators can create any record. Doctors must be the recorder and have
+-- an appointment assignment for the patient.
 CREATE POLICY "Doctors and admin can insert medical history"
   ON medical_history FOR INSERT
   TO authenticated
-  WITH CHECK (is_doctor_or_admin());
+  WITH CHECK (
+    is_admin()
+    OR (
+      recorded_by = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM appointments
+        WHERE appointments.patient_id = medical_history.patient_id
+        AND appointments.doctor_id = auth.uid()
+      )
+    )
+  );
 
--- Doctors and admin can update medical history
+-- Administrators can update all records. Doctors can update records in their
+-- assigned scope and cannot change the recorded_by owner.
 CREATE POLICY "Doctors and admin can update medical history"
   ON medical_history FOR UPDATE
   TO authenticated
-  USING (is_doctor_or_admin());
+  USING (
+    is_admin()
+    OR (
+      recorded_by = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM appointments
+        WHERE appointments.patient_id = medical_history.patient_id
+        AND appointments.doctor_id = auth.uid()
+      )
+    )
+  )
+  WITH CHECK (
+    is_admin()
+    OR (
+      recorded_by = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM appointments
+        WHERE appointments.patient_id = medical_history.patient_id
+        AND appointments.doctor_id = auth.uid()
+      )
+    )
+  );
 
 -- Only admin can delete medical history
 CREATE POLICY "Admin can delete medical history"
@@ -431,248 +571,12 @@ CREATE POLICY "Admin can delete medical history"
   USING (is_admin());
 
 -- ============================================================================
--- SECTION 6: HELPER FUNCTIONS
+-- SECTION 7: AUTHENTICATION HANDOFF
 -- ============================================================================
-
--- Function to verify user password (for custom auth flows)
-CREATE OR REPLACE FUNCTION verify_password(
-  email_input text,
-  password_input text
-) RETURNS TABLE (
-  id uuid,
-  email character varying,
-  full_name text,
-  role text
-) AS $$
-BEGIN
-  -- Input validation
-  IF email_input IS NULL OR email_input = '' THEN
-    RETURN;
-  END IF;
-  
-  IF password_input IS NULL OR password_input = '' THEN
-    RETURN;
-  END IF;
-
-  RETURN QUERY
-  SELECT 
-    u.id,
-    u.email,
-    p.full_name,
-    p.role
-  FROM auth.users u
-  JOIN profiles p ON u.id = p.id
-  WHERE u.email = email_input
-    AND u.encrypted_password = crypt(password_input, u.encrypted_password);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION verify_password(text, text) TO anon;
-GRANT EXECUTE ON FUNCTION verify_password(text, text) TO authenticated;
-
--- Function to create staff members (admin only)
-CREATE OR REPLACE FUNCTION create_staff_member(
-  email_input text,
-  password_input text,
-  full_name_input text,
-  role_input text,
-  phone_input text DEFAULT NULL
-) RETURNS uuid AS $$
-DECLARE
-  new_user_id uuid;
-BEGIN
-  -- Validate authentication
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Authentication required';
-  END IF;
-
-  -- Validate admin role
-  IF NOT EXISTS (
-    SELECT 1 FROM profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
-  ) THEN
-    RAISE EXCEPTION 'Only admins can create staff members';
-  END IF;
-
-  -- Validate email format (basic check)
-  IF email_input IS NULL OR email_input !~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
-    RAISE EXCEPTION 'Invalid email format';
-  END IF;
-
-  -- Validate password length
-  IF password_input IS NULL OR length(password_input) < 6 THEN
-    RAISE EXCEPTION 'Password must be at least 6 characters';
-  END IF;
-
-  -- Validate role
-  IF role_input NOT IN ('admin', 'doctor', 'receptionist') THEN
-    RAISE EXCEPTION 'Invalid role. Must be admin, doctor, or receptionist';
-  END IF;
-
-  -- Check if email already exists
-  IF EXISTS (SELECT 1 FROM auth.users WHERE email = email_input) THEN
-    RAISE EXCEPTION 'Email already exists';
-  END IF;
-
-  -- Generate new UUID
-  new_user_id := gen_random_uuid();
-
-  -- Insert into auth.users
-  INSERT INTO auth.users (
-    id,
-    instance_id,
-    aud,
-    role,
-    email,
-    encrypted_password,
-    email_confirmed_at,
-    raw_app_meta_data,
-    raw_user_meta_data,
-    created_at,
-    updated_at,
-    confirmation_token,
-    recovery_token,
-    email_change_token_new
-  ) VALUES (
-    new_user_id,
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    email_input,
-    crypt(password_input, gen_salt('bf')),
-    now(),
-    jsonb_build_object('provider', 'email', 'providers', ARRAY['email']),
-    jsonb_build_object('full_name', full_name_input),
-    now(),
-    now(),
-    '',
-    '',
-    ''
-  );
-
-  -- Insert into profiles
-  INSERT INTO profiles (
-    id,
-    email,
-    full_name,
-    role,
-    phone,
-    created_at,
-    updated_at
-  ) VALUES (
-    new_user_id,
-    email_input,
-    full_name_input,
-    role_input,
-    phone_input,
-    now(),
-    now()
-  );
-
-  RETURN new_user_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION create_staff_member(text, text, text, text, text) TO authenticated;
-
--- ============================================================================
--- SECTION 7: BOOTSTRAP ADMIN USER
--- ============================================================================
-
-DO $$
-DECLARE
-  admin_user_id uuid;
-  existing_user_id uuid;
-BEGIN
-  -- Check if admin user already exists in auth.users
-  SELECT id INTO existing_user_id
-  FROM auth.users
-  WHERE email = 'admin@clinic.com';
-
-  IF existing_user_id IS NOT NULL THEN
-    -- Update existing user's password
-    UPDATE auth.users
-    SET
-      encrypted_password = crypt('admin123', gen_salt('bf')),
-      updated_at = now()
-    WHERE id = existing_user_id;
-    
-    admin_user_id := existing_user_id;
-    
-    RAISE NOTICE 'Admin user password updated successfully';
-  ELSE
-    -- Create new admin user
-    admin_user_id := gen_random_uuid();
-    
-    INSERT INTO auth.users (
-      id,
-      instance_id,
-      aud,
-      role,
-      email,
-      encrypted_password,
-      email_confirmed_at,
-      raw_app_meta_data,
-      raw_user_meta_data,
-      created_at,
-      updated_at,
-      confirmation_token,
-      recovery_token,
-      email_change_token_new
-    ) VALUES (
-      admin_user_id,
-      '00000000-0000-0000-0000-000000000000',
-      'authenticated',
-      'authenticated',
-      'admin@clinic.com',
-      crypt('admin123', gen_salt('bf')),
-      now(),
-      '{"provider":"email","providers":["email"]}',
-      '{"full_name":"System Administrator"}',
-      now(),
-      now(),
-      '',
-      '',
-      ''
-    );
-    
-    RAISE NOTICE 'Admin user created in auth.users';
-  END IF;
-
-  -- Insert or update admin profile
-  INSERT INTO profiles (
-    id,
-    email,
-    full_name,
-    role,
-    phone,
-    created_at,
-    updated_at
-  ) VALUES (
-    admin_user_id,
-    'admin@clinic.com',
-    'System Administrator',
-    'admin',
-    NULL,
-    now(),
-    now()
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET
-    email = 'admin@clinic.com',
-    full_name = 'System Administrator',
-    role = 'admin',
-    updated_at = now();
-
-  RAISE NOTICE '========================================';
-  RAISE NOTICE 'Admin user setup complete!';
-  RAISE NOTICE 'Email: admin@clinic.com';
-  RAISE NOTICE 'Password: admin123';
-  RAISE NOTICE '========================================';
-END $$;
+-- Supabase Auth owns password hashing and account lifecycle.
+-- Create the first clinic administrator through the Supabase Dashboard or a
+-- separately secured provisioning workflow. Do not store default passwords in
+-- migrations or source control.
 
 -- ============================================================================
 -- SECTION 8: SEED SAMPLE SERVICES
@@ -730,11 +634,10 @@ GRANT DELETE ON medical_history TO authenticated;
 
 -- Verification queries (run these to confirm setup):
 /*
--- Check admin user exists:
-SELECT u.id, u.email, p.full_name, p.role 
-FROM auth.users u 
-LEFT JOIN profiles p ON u.id = p.id 
-WHERE u.email = 'admin@clinic.com';
+-- Check that an administrator profile exists after provisioning:
+SELECT id, email, full_name, role
+FROM profiles
+WHERE role = 'admin';
 
 -- Check RLS is enabled:
 SELECT tablename, rowsecurity 

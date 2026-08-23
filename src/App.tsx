@@ -10,9 +10,10 @@ import { AppointmentManagement } from './components/shared/AppointmentManagement
 import { PaymentManagement } from './components/shared/PaymentManagement';
 import { MedicalHistoryManagement } from './components/doctor/MedicalHistoryManagement';
 import { Stethoscope } from 'lucide-react';
+import { UserRole } from './lib/supabase';
 
 function AppContent() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
@@ -62,14 +63,34 @@ function AppContent() {
     return <Login />;
   }
 
+  if (!['admin', 'doctor', 'receptionist'].includes(profile.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <h1 className="text-xl font-bold text-gray-900">Account access unavailable</h1>
+          <p className="mt-2 text-sm text-gray-600">Your account does not have a supported clinic role. Contact an administrator.</p>
+          <button type="button" onClick={() => void signOut()} className="mt-6 rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-700">
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const getDefaultTab = () => {
     if (profile.role === 'admin') return 'dashboard';
     if (profile.role === 'receptionist') return 'patients';
-    if (profile.role === 'doctor') return 'appointments';
-    return 'dashboard';
+    return 'appointments';
   };
 
-  const currentTab = activeTab || getDefaultTab();
+  const allowedTabs: Record<UserRole, string[]> = {
+    admin: ['dashboard', 'staff', 'services', 'patients', 'appointments', 'payments'],
+    receptionist: ['patients', 'appointments', 'payments'],
+    doctor: ['appointments', 'medical-history'],
+  };
+  const roleTabs = allowedTabs[profile.role];
+  const requestedTab = activeTab || getDefaultTab();
+  const currentTab = roleTabs?.includes(requestedTab) ? requestedTab : getDefaultTab();
 
   const renderContent = () => {
     switch (currentTab) {

@@ -1,224 +1,86 @@
-# Dental Clinic Management System
+# DentalCare Practice Management System
 
-A comprehensive web-based platform for managing dental clinic operations, including patient records, appointments, services, payments, and medical history.
+DentalCare is a role-based internal web application for small dental clinics. The current implementation provides authenticated staff access to patient records, appointment scheduling, service catalog management, payment tracking, and doctor-facing medical history. It is an existing React/Supabase product that has been cleaned up for evaluation and handoff; it is not presented as a certified electronic health record or a substitute for a clinic’s legal, privacy, or security review.
 
-## Features
+## Current product scope
 
-- 🔐 **Role-Based Authentication** - Secure login with admin, doctor, and receptionist roles
-- 👥 **Staff Management** - Admins can create and manage staff members
-- 🦷 **Patient Management** - Comprehensive patient records and information
-- 📅 **Appointment Scheduling** - Schedule and manage appointments with doctors
-- 💰 **Payment Tracking** - Record and track patient payments
-- 📋 **Medical History** - Maintain detailed medical records and treatment history
-- 🎨 **Modern UI** - Beautiful, responsive design with Tailwind CSS
+| Area | Current implementation | Important limitation |
+|---|---|---|
+| Authentication | Supabase email/password authentication with session refresh | Account provisioning and password recovery must be configured in Supabase |
+| Admin | Dashboard, staff creation/listing, services, patients, appointments, payments | Staff edit, disable, delete, and password-reset workflows are not included |
+| Doctor | Assigned appointment view and medical-history create/read workflow | Medical-history edit/delete and richer clinical fields are not fully exposed in the UI |
+| Receptionist | Patient creation/listing, appointment booking/status updates, payment recording | Patient edit/delete and advanced scheduling workflows are not included |
+| Accountant | Not implemented | Do not advertise this role until the data model, policies, navigation, and workflows are added |
+| Backend | Supabase PostgreSQL, RLS policies, and a staff-provisioning Edge Function | The backend must be deployed and tested in the buyer’s Supabase project |
+| Deployment | Firebase Hosting configuration is included | The historical Firebase site is an older build and must be redeployed after cleanup |
 
-## Technology Stack
+The database schema contains additional fields and statuses beyond the current screens. The source of truth for runtime permissions is the RLS policy set in `supabase/migrations/20251206000000_complete_system_reset.sql`; frontend visibility is only a usability layer and must not be treated as the security boundary.
 
-- **Frontend**: React 18.3.1 with TypeScript 5.5
-- **Styling**: Tailwind CSS 3.4.1
-- **Build Tool**: Vite 5.4.2
-- **Database**: Supabase (PostgreSQL)
-- **Icons**: Lucide React 0.344
-- **Client Library**: @supabase/supabase-js 2.57.4
+## Technology stack
 
-## Prerequisites
+The project uses React 18, TypeScript, Vite 5, Tailwind CSS 3, Supabase JS, and Lucide React. Firebase Hosting serves the Vite `dist/` output with a single-page-application fallback. Staff account creation uses `supabase/functions/create-staff/index.ts`, which requires the Supabase Edge Function runtime and a server-side service-role secret.
 
-- Node.js 18+ and npm
-- A Supabase account and project
-- Git (for cloning the repository)
+## Local setup
 
-## Quick Start
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd dental-clinic
-```
-
-### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-### 3. Set Up Environment Variables
-
-Create a `.env` file in the project root:
+Use Node.js 18 or newer and npm. Install dependencies with `npm ci`, then create a local `.env` file from `.env.example`:
 
 ```env
-VITE_SUPABASE_URL=https://mvwvnxoweiiwshfzjdcc.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12d3ZueG93ZWlpd3NoZnpqZGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MTM0NzUsImV4cCI6MjA4MDA4OTQ3NX0._LGQDyUnVRj7BzJqjdffMdE2woTugA4lQTNJ7OHEVZY
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-**Note**: Replace with your own Supabase credentials if using a different instance.
+Never commit `.env`, service-role keys, passwords, patient data, or real clinic credentials. The frontend intentionally does not contain a fallback project URL or anon key. If the variables are missing, the application will show a configuration/connection error instead of silently connecting to an embedded backend.
 
-### 4. Set Up Database
+For a new Supabase project, review the migration before applying it. The current migration creates the existing tables, indexes, RLS policies, and sample services. It intentionally does not create a default administrator or store a default password. Provision the first administrator through the Supabase Dashboard or a separately secured provisioning process, then create the corresponding `profiles` row with the `admin` role.
 
-1. Open your Supabase Dashboard
-2. Go to SQL Editor
-3. Run the comprehensive migration file: `supabase/migrations/20251206000000_complete_system_reset.sql`
-
-This migration will:
-- Create all necessary tables (profiles, patients, services, appointments, payments, medical_history)
-- Set up Row-Level Security (RLS) policies
-- Create helper functions
-- Insert the default admin user
-
-### 5. Start Development Server
+Start the local app with:
 
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`
+The default local URL is `http://localhost:5173`.
 
-## Default Login Credentials
+## Verification commands
 
-- **Email**: `admin@clinic.com`
-- **Password**: `admin123`
-
-**⚠️ Important**: Change the default password after first login in production environments.
-
-## Project Structure
-
-```
-dental-clinic/
-├── src/
-│   ├── components/          # React components
-│   │   ├── admin/          # Admin-specific components
-│   │   ├── shared/         # Shared components
-│   │   └── Login.tsx       # Login component
-│   ├── contexts/            # React contexts
-│   │   └── AuthContext.tsx # Authentication context
-│   ├── lib/                # Utility libraries
-│   │   └── supabase.ts     # Supabase client configuration
-│   ├── App.tsx             # Main application component
-│   └── main.tsx            # Application entry point
-├── supabase/
-│   └── migrations/         # Database migrations
-│       └── 20251206000000_complete_system_reset.sql
-├── .env                    # Environment variables (create this)
-├── package.json            # Dependencies and scripts
-└── README.md              # This file
+```bash
+npm run typecheck
+npm run lint
+npm run build
+npm run preview
 ```
 
-## Available Scripts
+`npm run lint` uses the pinned TypeScript/ESLint toolchain in the lockfile. Run all three checks before handoff. The build output is created in `dist/`.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run typecheck` - Run TypeScript type checking
+## Supabase Edge Function deployment
 
-## User Roles
+The staff-creation function must be deployed separately from the frontend. Configure the function with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `ALLOWED_ORIGINS`. `ALLOWED_ORIGINS` should contain the exact HTTPS origin(s) that host the application, separated by commas; local development may use `http://localhost:5173,http://localhost:4173`.
 
-### Admin
-- Full system access
-- Create and manage staff members
-- Manage services and pricing
-- View all appointments and payments
-- Access all patient records
-
-### Doctor
-- View assigned appointments
-- Access patient medical history
-- Update diagnosis and treatment records
-- Record medications
-- Update appointment status
-
-### Receptionist
-- Add and manage patients
-- Schedule appointments
-- Assign doctors to appointments
-- Record payments
-- View appointment schedules
-
-## Security Features
-
-- **Row-Level Security (RLS)**: All database tables have RLS enabled
-- **Role-Based Access Control**: Policies enforce permissions based on user roles
-- **Secure Authentication**: Password hashing via Supabase Auth
-- **Session Management**: Automatic session handling and refresh
-
-## Database Schema
-
-The system uses the following main tables:
-
-- **profiles** - User profiles with role-based access
-- **patients** - Patient information and records
-- **services** - Dental services with pricing
-- **appointments** - Appointment scheduling and management
-- **payments** - Payment tracking and processing
-- **medical_history** - Patient medical records and treatment history
-
-## Troubleshooting
-
-See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for common issues and solutions.
-
-## Documentation
-
-- [FIXES_APPLIED.md](./FIXES_APPLIED.md) - Architecture and fixes documentation
-- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Troubleshooting guide
-- [PRD.md](./PRD.md) - Product Requirements Document (if available)
-
-## Development
-
-### Code Style
-
-- TypeScript for type safety
-- ESLint for code quality
-- Tailwind CSS for styling
-- Functional components with React Hooks
-
-### Adding New Features
-
-1. Create components in appropriate directories
-2. Update database schema via migrations if needed
-3. Update RLS policies for new tables/features
-4. Test thoroughly with different user roles
+The service-role key must remain in Supabase server-side secrets and must never be placed in Vite variables, source files, documentation, or Firebase Hosting configuration. The function restricts staff creation to authenticated administrators and supports only the three implemented roles: `admin`, `doctor`, and `receptionist`.
 
 ## Deployment
 
-### Build for Production
+The repository includes Firebase Hosting configuration for the historical site at [dentalcare-1.web.app](https://dentalcare-1.web.app/). That live site was reachable during the audit but displayed an older build with a demo-credential panel and an outdated footer. Rebuild and redeploy it only after setting the correct Supabase environment variables and deploying the Edge Function. After deployment, verify the login page, session handling, each role’s navigation, patient creation, appointment booking, payment recording, medical-record creation, and sign-out.
 
-```bash
-npm run build
-```
+## Privacy and operational expectations
 
-The production build will be in the `dist/` directory.
+This application handles sensitive clinical and financial information. Before using it with real patients, the owner must configure an appropriate Supabase project, review RLS policies with a qualified security professional, enable backups and monitoring, establish retention and access procedures, and satisfy applicable privacy and healthcare requirements. The sample services and any future demo records must be fictional.
 
-### Environment Variables for Production
+## Repository map
 
-Ensure production environment variables are set:
-- `VITE_SUPABASE_URL` - Your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` - Your Supabase anon/public key
+| Path | Purpose |
+|---|---|
+| `src/App.tsx` | Authenticated application shell and role-safe tab rendering |
+| `src/contexts/AuthContext.tsx` | Supabase session and profile lifecycle |
+| `src/components/` | Feature screens for admin, shared, and doctor workflows |
+| `src/lib/supabase.ts` | Supabase client, configuration validation, and shared types |
+| `supabase/migrations/` | Database schema, indexes, grants, and RLS policies |
+| `supabase/functions/create-staff/` | Server-side administrator-only staff provisioning |
+| `firebase.json` | Firebase Hosting configuration |
+| `SETUP_GUIDE.md` | Detailed environment and deployment handoff |
+| `TESTING_GUIDE.md` | Manual verification checklist |
+| `AUDIT_REPORT.md` | Latest repository and deployment audit |
 
-## Contributing
+## License and ownership
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-[Add your license information here]
-
-## Support
-
-For issues and questions:
-1. Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
-2. Review browser console for errors
-3. Check Supabase Dashboard for database issues
-4. Verify environment variables are set correctly
-
-## Changelog
-
-### Latest Updates
-- ✅ Cleaned up codebase - removed old migrations
-- ✅ Removed unused authentication edge functions
-- ✅ Consolidated to single comprehensive migration
-- ✅ Updated documentation for clean architecture
-
+No open-source license is currently declared. Before listing the project for sale, define the license or transfer terms, identify the included assets, and state clearly whether the buyer receives the Firebase project, Supabase project, Edge Function deployment, domain, and any demo data.

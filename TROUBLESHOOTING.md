@@ -9,15 +9,15 @@ For initial setup instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md).
 1. Open browser DevTools (F12)
 2. Go to Console tab
 3. Look for:
-   - ✅ `🔗 Supabase URL: https://mvwvnxoweiiwshfzjdcc.supabase.co`
+   - ✅ `🔗 Supabase URL: https://your-project.supabase.co`
    - ✅ `🔑 Supabase Key: Set`
    - ❌ Any red error messages
 
 ### Step 2: Verify Environment Variables
 Check that `.env` file exists in project root with:
 ```env
-VITE_SUPABASE_URL=https://mvwvnxoweiiwshfzjdcc.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12d3ZueG93ZWlpd3NoZnpqZGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MTM0NzUsImV4cCI6MjA4MDA4OTQ3NX0._LGQDyUnVRj7BzJqjdffMdE2woTugA4lQTNJ7OHEVZY
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### Step 3: Verify Dev Server
@@ -47,8 +47,8 @@ VITE v5.x.x  ready in xxx ms
 ### Issue: "Invalid email or password"
 **Solutions:**
 1. Verify you're using the correct admin credentials:
-   - Email: `admin@clinic.com`
-   - Password: `admin123`
+   - Email: `your-admin-email@example.com`
+   - Password: `use-a-unique-password`
 2. Check that the migration has been run successfully
 3. Verify the admin user exists in the database
 
@@ -62,7 +62,7 @@ VITE v5.x.x  ready in xxx ms
 ### Issue: "Cannot create staff member"
 **Solutions:**
 1. Verify you're logged in as admin
-2. Check that `create_staff_member()` function exists in database
+2. Check that `the create-staff Edge Function` function exists in database
 3. Verify RLS policies allow admin to create staff
 4. Check browser console for specific error messages
 

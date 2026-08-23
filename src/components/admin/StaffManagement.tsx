@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, Profile } from '../../lib/supabase';
+import { supabase, Profile, UserRole } from '../../lib/supabase';
 import { UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -12,7 +12,7 @@ export function StaffManagement() {
     email: '',
     password: '',
     full_name: '',
-    role: 'receptionist' as 'admin' | 'doctor' | 'receptionist',
+    role: 'receptionist' as UserRole,
     phone: '',
   });
 
@@ -70,9 +70,9 @@ export function StaffManagement() {
         }
       );
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (!result.success) {
+      if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to create staff member');
       }
 
@@ -86,9 +86,9 @@ export function StaffManagement() {
       setShowForm(false);
       await fetchStaff();
       alert('Staff member created successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating staff:', error);
-      alert(error.message || 'Failed to create staff member');
+      alert(error instanceof Error ? error.message : 'Failed to create staff member');
     } finally {
       setLoading(false);
     }
@@ -160,7 +160,7 @@ export function StaffManagement() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
               />
             </div>
@@ -179,7 +179,7 @@ export function StaffManagement() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
               >

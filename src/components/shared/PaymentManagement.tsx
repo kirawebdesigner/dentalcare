@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { supabase, Payment, Patient, Appointment } from '../../lib/supabase';
+import { supabase, Payment, Patient, Appointment, PaymentMethod } from '../../lib/supabase';
 import { DollarSign, CreditCard, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function PaymentManagement() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -15,7 +15,7 @@ export function PaymentManagement() {
     appointment_id: '',
     patient_id: '',
     amount: '',
-    payment_method: 'cash' as 'cash' | 'card' | 'insurance',
+    payment_method: 'cash' as PaymentMethod,
   });
 
   useEffect(() => {
@@ -54,9 +54,9 @@ export function PaymentManagement() {
       setPayments(paymentsRes.data || []);
       setPatients(patientsRes.data || []);
       setAppointments(appointmentsRes.data || []);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
-      alert(error.message || 'Failed to load payments. Please try again.');
+    } catch (error: unknown) {
+      console.error('Error fetching payment data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to load payments. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,12 +67,29 @@ export function PaymentManagement() {
     setLoading(true);
 
     try {
+      if (!user?.id || !profile || !['admin', 'receptionist'].includes(profile.role)) {
+        throw new Error('Only administrators and receptionists can record payments.');
+      }
+
+      const amount = Number(formData.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Enter a payment amount greater than zero.');
+      }
+
+      const selectedAppointment = formData.appointment_id
+        ? appointments.find((appointment) => appointment.id === formData.appointment_id)
+        : undefined;
+      if (selectedAppointment && selectedAppointment.patient_id !== formData.patient_id) {
+        throw new Error('The selected appointment does not belong to this patient.');
+      }
+
       const { error } = await supabase.from('payments').insert({
-        ...formData,
-        amount: parseFloat(formData.amount),
+        patient_id: formData.patient_id,
+        amount,
+        payment_method: formData.payment_method,
         appointment_id: formData.appointment_id || null,
         status: 'pending',
-        created_by: user?.id,
+        created_by: user.id,
       });
 
       if (error) throw error;
@@ -85,9 +102,9 @@ export function PaymentManagement() {
       });
       setShowForm(false);
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating payment:', error);
-      alert(error.message || 'Failed to create payment. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to create payment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -105,9 +122,9 @@ export function PaymentManagement() {
 
       if (error) throw error;
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating payment status:', error);
-      alert(error.message || 'Failed to update payment status. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to update payment status. Please try again.');
     }
   };
 
@@ -141,13 +158,17 @@ export function PaymentManagement() {
     ? payments
     : payments.filter(p => p.status === filterStatus);
 
+  const getPaymentTotal = (payment: Payment) => Number(payment.total ?? payment.amount ?? 0);
+
   const totalRevenue = payments
     .filter(p => p.status === 'paid')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+    .reduce((sum, p) => sum + getPaymentTotal(p), 0);
 
   const pendingAmount = payments
     .filter(p => p.status === 'pending')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+    .reduce((sum, p) => sum + getPaymentTotal(p), 0);
+
+  const canManagePayments = profile?.role === 'admin' || profile?.role === 'receptionist';
 
   if (loading && !showForm) {
     return <div className="text-center py-8 text-gray-500">Loading payments...</div>;
@@ -160,13 +181,15 @@ export function PaymentManagement() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Payment Management</h2>
           <p className="text-sm sm:text-base text-gray-600">Track and manage patient payments</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
-        >
-          <DollarSign className="w-4 h-4" />
-          <span>Add Payment</span>
-        </button>
+        {canManagePayments && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg hover:from-pink-600 to-rose-600 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+          >
+            <DollarSign className="w-4 h-4" />
+            <span>Add Payment</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -257,13 +280,15 @@ export function PaymentManagement() {
               </label>
               <select
                 value={formData.payment_method}
-                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as PaymentMethod })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
               >
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
                 <option value="insurance">Insurance</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="other">Other</option>
               </select>
             </div>
 
@@ -344,7 +369,7 @@ export function PaymentManagement() {
                     <div className="font-medium text-gray-900">{payment.patient?.full_name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-lg font-semibold text-gray-800">${Number(payment.amount).toFixed(2)}</div>
+                    <div className="text-lg font-semibold text-gray-800">${getPaymentTotal(payment).toFixed(2)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
@@ -396,7 +421,7 @@ export function PaymentManagement() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{payment.patient?.full_name}</h3>
-                    <p className="text-lg font-bold text-gray-800">${Number(payment.amount).toFixed(2)}</p>
+                    <p className="text-lg font-bold text-gray-800">${getPaymentTotal(payment).toFixed(2)}</p>
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>

@@ -26,9 +26,9 @@ export function ServiceManagement() {
 
       if (error) throw error;
       setServices(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching services:', error);
-      alert(error.message || 'Failed to load services. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to load services. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -57,9 +57,9 @@ export function ServiceManagement() {
       });
       setShowForm(false);
       await fetchServices();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating service:', error);
-      alert(error.message || 'Failed to create service. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to create service. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -74,9 +74,9 @@ export function ServiceManagement() {
 
       if (error) throw error;
       await fetchServices();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating service status:', error);
-      alert(error.message || 'Failed to update service status. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to update service status. Please try again.');
     }
   };
 

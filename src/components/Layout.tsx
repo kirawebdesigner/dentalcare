@@ -49,33 +49,40 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
   // Search function
   useEffect(() => {
+    let ignore = false;
+
     const searchData = async () => {
-      if (searchQuery.length < 2) {
+      const term = searchQuery.trim();
+      if (term.length < 2) {
         setSearchResults([]);
+        setShowResults(false);
         return;
       }
 
       setSearching(true);
       try {
         const results: SearchResult[] = [];
+        const pattern = `%${term.replace(/[\\%_]/g, '\\$&')}%`;
 
-        // Search patients
-        const { data: patients } = await supabase
-          .from('patients')
-          .select('id, full_name, phone')
-          .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
-          .limit(5);
+        // Use separate parameterized filters rather than interpolating a raw
+        // PostgREST .or() expression with user input.
+        const [nameResponse, phoneResponse] = await Promise.all([
+          supabase.from('patients').select('id, full_name, phone').ilike('full_name', pattern).limit(5),
+          supabase.from('patients').select('id, full_name, phone').ilike('phone', pattern).limit(5),
+        ]);
 
-        if (patients) {
-          patients.forEach(p => {
-            results.push({
-              type: 'patient',
-              id: p.id,
-              title: p.full_name,
-              subtitle: p.phone
-            });
+        const patients = [...(nameResponse.data ?? []), ...(phoneResponse.data ?? [])]
+          .filter((patient, index, all) => all.findIndex((item) => item.id === patient.id) === index)
+          .slice(0, 5);
+
+        patients.forEach(p => {
+          results.push({
+            type: 'patient',
+            id: p.id,
+            title: p.full_name,
+            subtitle: p.phone
           });
-        }
+        });
 
         // Search appointments (by patient name)
         const { data: appointments } = await supabase
@@ -101,17 +108,25 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             });
         }
 
-        setSearchResults(results);
-        setShowResults(true);
-      } catch (error) {
-        console.error('Search error:', error);
+        if (!ignore) {
+          setSearchResults(results);
+          setShowResults(true);
+        }
+      } catch {
+        if (!ignore) {
+          setSearchResults([]);
+          setShowResults(true);
+        }
       } finally {
-        setSearching(false);
+        if (!ignore) setSearching(false);
       }
     };
 
     const debounce = setTimeout(searchData, 300);
-    return () => clearTimeout(debounce);
+    return () => {
+      ignore = true;
+      clearTimeout(debounce);
+    };
   }, [searchQuery]);
 
   const handleResultClick = (result: SearchResult) => {
@@ -201,8 +216,10 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             <div className="hidden md:flex flex-1 max-w-md mx-8" ref={searchRef}>
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <label htmlFor="global-search" className="sr-only">Search patients and appointments</label>
                 <input
-                  type="text"
+                  id="global-search"
+                  type="search"
                   placeholder="Search patients, appointments..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -211,7 +228,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => { setSearchQuery(''); setSearchResults([]); setShowResults(false); }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     <X className="w-4 h-4" />
@@ -270,7 +289,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
               {/* Sign out */}
               <button
-                onClick={() => signOut()}
+                type="button"
+                aria-label="Sign out"
+                onClick={() => void signOut()}
                 className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50/50 rounded-xl transition-all"
                 title="Sign Out"
               >
@@ -294,6 +315,8 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                 return (
                   <button
                     key={item.id}
+                    type="button"
+                    aria-current={isActive ? 'page' : undefined}
                     onClick={() => onTabChange(item.id)}
                     className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 whitespace-nowrap ${isActive
                       ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25'

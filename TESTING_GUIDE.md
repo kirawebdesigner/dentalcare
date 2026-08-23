@@ -1,145 +1,50 @@
-# Testing Guide - Dental Clinic Management System
+# DentalCare Manual Testing Guide
 
-## Pre-Testing Checklist
+## Test data policy
 
-### 1. Environment Setup
-- [ ] Create `.env` file in project root with:
-  ```
-  VITE_SUPABASE_URL=https://mvwvnxoweiiwshfzjdcc.supabase.co
-  VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12d3ZueG93ZWlpd3NoZnpqZGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MTM0NzUsImV4cCI6MjA4MDA4OTQ3NX0._LGQDyUnVRj7BzJqjdffMdE2woTugA4lQTNJ7OHEVZY
-  ```
+Use a buyer-owned Supabase project with fictional staff and patient data. Never use real patient information in a development or demo environment. Do not publish passwords in this guide or commit them to the repository.
 
-### 2. Database Migrations
-- [ ] Run `20251201175219_complete_dental_system_setup.sql` on Supabase
-- [ ] Run `20251201180000_fix_staff_creation_and_rls.sql` on Supabase
-- [ ] Create admin user (if not exists):
-  ```sql
-  DO $$
-  DECLARE
-    admin_id uuid;
-  BEGIN
-    admin_id := gen_random_uuid();
-    INSERT INTO auth.users (
-      id, instance_id, aud, role, email, encrypted_password,
-      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      is_super_admin, created_at, updated_at
-    ) VALUES (
-      admin_id, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated',
-      'authenticated', 'admin@clinic.com', crypt('admin123', gen_salt('bf')),
-      now(), '{"provider":"email","providers":["email"]}', '{}', false,
-      now(), now()
-    );
-    INSERT INTO profiles (id, email, full_name, role, created_at, updated_at)
-    VALUES (admin_id, 'admin@clinic.com', 'Clinic Admin', 'admin', now(), now());
-  END $$;
-  ```
+## Pre-flight checks
 
-## Testing Steps
+Confirm that `.env` contains the buyer’s Supabase URL and public anon key, the database migration has been reviewed and applied to the intended project, and the `create-staff` Edge Function is deployed with its service-role key stored only in Supabase secrets. Confirm that `ALLOWED_ORIGINS` contains the exact application origin.
 
-### Test 1: Login
-1. Open the application in browser (usually http://localhost:5173)
-2. Enter credentials:
-   - Email: `admin@clinic.com`
-   - Password: `admin123`
-3. Click "Sign In"
-4. **Expected:** Should successfully log in and redirect to dashboard
+Run the repository checks:
 
-### Test 2: Create Staff Member (FIXED ISSUE)
-1. Navigate to "Staff Management" from the sidebar
-2. Click "Add Staff" button
-3. Fill in the form:
-   - Full Name: `Dr. John Doe`
-   - Email: `doctor@clinic.com`
-   - Password: `doctor123`
-   - Phone: `123-456-7890`
-   - Role: `Doctor`
-4. Click "Add Staff"
-5. **Expected:** 
-   - ✅ Staff member created successfully
-   - ✅ No "Signups not allowed" error
-   - ✅ New staff appears in the staff list
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run build
+```
 
-### Test 3: Create Patient (FIXED ISSUE)
-1. Navigate to "Patient Management" from the sidebar
-2. Click "Add Patient" button
-3. Fill in the form:
-   - Full Name: `Jane Smith`
-   - Phone: `555-1234`
-   - Date of Birth: `1990-01-15` (optional)
-   - Address: `123 Main St` (optional)
-   - Notes: `Regular checkup patient` (optional)
-4. Click "Add Patient"
-5. **Expected:**
-   - ✅ Patient created successfully
-   - ✅ No RLS policy violation error
-   - ✅ New patient appears in the patient list
+## Authentication tests
 
-### Test 4: Verify Staff List
-1. Go to Staff Management
-2. **Expected:** Should see:
-   - Admin user (admin@clinic.com)
-   - Any newly created staff members
+Create or invite a synthetic administrator through Supabase Auth, create its matching `profiles` row with the `admin` role, and sign in through the application. Confirm that the loading state resolves, the administrator shell appears, sign-out clears the session, an invalid password displays a generic error, and the page does not display or suggest a default credential.
 
-### Test 5: Verify Patient List
-1. Go to Patient Management
-2. **Expected:** Should see:
-   - Any newly created patients
-   - Search functionality works
+Repeat login and sign-out using synthetic doctor and receptionist accounts. Confirm that an account with no supported profile role is shown an access-unavailable state rather than receiving a dashboard.
 
-## Common Issues & Solutions
+## Administrator tests
 
-### Issue: "Signups not allowed"
-- **Solution:** Make sure you've run the migration `20251201180000_fix_staff_creation_and_rls.sql`
-- The `create_staff_member()` function should be available
+Verify that the administrator can view the dashboard, staff list, services, patients, appointments, and payments. Create a synthetic doctor or receptionist through the staff screen and confirm that the record appears in the list. Verify that invalid email input, a short password, a duplicate email, and a failed function deployment produce a bounded error without exposing server internals.
 
-### Issue: "RLS policy violation"
-- **Solution:** 
-  1. Verify you're logged in as admin or receptionist
-  2. Check that the migration updated the RLS policies
-  3. Verify `auth.uid()` is working (check browser console)
+Create and deactivate a service. Confirm that inactive services are not offered for new appointments. Add a fictional patient, search by name and phone, open the patient profile, and verify that the information is displayed correctly.
 
-### Issue: Environment variables not loading
-- **Solution:**
-  1. Make sure `.env` file is in the project root
-  2. Restart the dev server after creating `.env`
-  3. Check browser console for Supabase connection errors
+Book an appointment with a valid patient, doctor, service, date, and time. Confirm that it appears in the appointment list, that supported status filters work, and that completing or cancelling an appointment refreshes the record. Verify that duplicate doctor/date/time slots are rejected by the database constraint.
 
-### Issue: Cannot connect to Supabase
-- **Solution:**
-  1. Verify the Supabase URL is correct
-  2. Check your internet connection
-  3. Verify the anon key is correct
-  4. Check Supabase dashboard to ensure instance is active
+Record a payment for the correct patient and, optionally, a matching completed appointment. Confirm that the payment appears as pending, that the displayed totals use the generated payment total, and that marking it paid updates the paid timestamp and dashboard totals.
 
-## Browser Console Checks
+## Doctor tests
 
-Open browser DevTools (F12) and check:
-- ✅ No red errors in Console tab
-- ✅ Network tab shows successful requests to Supabase
-- ✅ No CORS errors
-- ✅ Authentication requests return 200 status
+Verify that the doctor sees only the doctor navigation items and receives only appointments assigned to that doctor. Confirm that the doctor can create a medical-history record for a patient and view records allowed by the RLS policy. Confirm that the doctor cannot create payments, patients, staff, or services through the UI or direct database requests.
 
-## Success Criteria
+## Receptionist tests
 
-All tests pass if:
-- ✅ Login works without errors
-- ✅ Staff creation works without "Signups not allowed" error
-- ✅ Patient creation works without RLS policy errors
-- ✅ Data persists (refresh page, data should still be there)
-- ✅ No console errors in browser DevTools
+Verify that the receptionist can create and search patients, book appointments, update appointment status, and record or mark payments as paid. Confirm that the receptionist cannot manage staff, services, or medical-history records.
 
-## Next Steps After Testing
+## Responsive and accessibility checks
 
-If all tests pass:
-1. Create additional staff members (doctors, receptionists)
-2. Create more patients
-3. Test appointment scheduling
-4. Test payment recording
-5. Test medical history management
+Test at approximately 320px, 768px, and 1280px viewport widths. Confirm that tables switch to readable mobile cards, forms do not overflow, buttons remain reachable, status text remains legible, the password visibility control has an accessible label, errors are announced, and visible focus rings remain present during keyboard navigation.
 
-If tests fail:
-1. Check browser console for specific error messages
-2. Verify all migrations were run successfully
-3. Check Supabase dashboard for any errors
-4. Review the error message and refer to FIXES_APPLIED.md
+## Production smoke test
 
+After Firebase deployment, verify the HTTPS URL, SPA refresh routing, no credential block on the login page, correct page title and metadata, Supabase connection, role navigation, and the staff Edge Function from the deployed origin. Do not use real clinical or financial data during the smoke test.

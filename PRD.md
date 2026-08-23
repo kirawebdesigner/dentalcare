@@ -23,8 +23,8 @@ To provide a centralized, secure, and user-friendly solution for dental clinics 
 - Secure logout functionality
 
 **Admin Credentials (Default):**
-- Email: admin@clinic.com
-- Password: admin123
+- Email: your-admin-email@example.com
+- Password: use-a-unique-password
 
 ### 2. Staff Management
 **Admin Only**
@@ -89,7 +89,7 @@ To provide a centralized, secure, and user-friendly solution for dental clinics 
 
 ### Backend
 - **Database**: Supabase PostgreSQL
-- **Authentication**: Custom verification function (verify_password RPC)
+- **Authentication**: Custom verification function (Supabase signInWithPassword authentication)
 - **API Layer**: Supabase JavaScript Client
 - **Security**: Row-Level Security (RLS) policies on all tables
 
@@ -204,8 +204,8 @@ To provide a centralized, secure, and user-friendly solution for dental clinics 
 
 ### Environment Variables
 ```
-VITE_SUPABASE_URL=https://mvwvnxoweiiwshfzjdcc.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### Build Commands

@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components -- provider and hook are intentionally colocated. */
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, Profile } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { isSupabaseConfigured, Profile, supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -20,44 +21,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    const loadProfile = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error('Unable to load user profile.');
+        setProfile(null);
+      } else {
+        setProfile(data);
+      }
+      setLoading(false);
+    };
+
+    const applySession = async (sessionUser: User | null) => {
+      if (!mounted) return;
+      setUser(sessionUser);
+      setProfile(null);
+
+      if (sessionUser) {
+        await loadProfile(sessionUser.id);
+      } else {
+        setLoading(false);
+      }
+    };
+
     const initAuth = async () => {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-        }
-        
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        await applySession(data.session?.user ?? null);
+      } catch {
         if (mounted) {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          } else {
-            setLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        if (mounted) {
+          setUser(null);
+          setProfile(null);
           setLoading(false);
         }
       }
     };
 
-    initAuth();
+    void initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        (async () => {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          } else {
-            setProfile(null);
-            setLoading(false);
-          }
-        })();
-      }
+      void applySession(session?.user ?? null);
     });
 
     return () => {
@@ -66,31 +82,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured for this deployment.');
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw error;
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    setUser(null);
     setProfile(null);
   };
 

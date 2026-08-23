@@ -7,8 +7,6 @@ import {
   TrendingUp,
   Activity,
   Clock,
-  ArrowUpRight,
-  ArrowDownRight
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -35,6 +33,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
     action: string;
     name: string;
     time: string;
+    timestamp: string;
     color: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +42,8 @@ export function Dashboard({ onTabChange }: DashboardProps) {
     if (profile) {
       fetchStats();
     }
+  // The dashboard refreshes when the authenticated profile changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const fetchStats = async () => {
@@ -54,12 +55,12 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       const [patientCountRes, appointmentsRes, revenueRes, pendingRes] = await Promise.all([
         supabase.from('patients').select('*', { count: 'exact', head: true }),
         supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('appointment_date', today),
-        supabase.from('payments').select('amount').eq('status', 'paid'),
-        supabase.from('payments').select('amount').eq('status', 'pending'),
+        supabase.from('payments').select('amount, total').eq('status', 'paid'),
+        supabase.from('payments').select('amount, total').eq('status', 'pending'),
       ]);
 
-      const totalRevenue = revenueRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-      const pendingPayments = pendingRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const totalRevenue = revenueRes.data?.reduce((sum, p) => sum + Number(p.total ?? p.amount ?? 0), 0) || 0;
+      const pendingPayments = pendingRes.data?.reduce((sum, p) => sum + Number(p.total ?? p.amount ?? 0), 0) || 0;
 
       setStats({
         totalPatients: patientCountRes.count || 0,
@@ -79,7 +80,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
 
   const fetchRecentActivity = async () => {
     try {
-      const activities: Array<{ action: string; name: string; time: string; color: string }> = [];
+      const activities: Array<{ action: string; name: string; time: string; timestamp: string; color: string }> = [];
 
       // Get recent patients
       const { data: recentPatients } = await supabase
@@ -94,6 +95,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
             action: 'New patient registered',
             name: p.full_name,
             time: getTimeAgo(new Date(p.created_at)),
+            timestamp: p.created_at,
             color: 'bg-blue-500'
           });
         });
@@ -102,7 +104,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       // Get recent appointments
       const { data: recentAppointments } = await supabase
         .from('appointments')
-        .select('status, appointment_date, patients(full_name)')
+        .select('status, appointment_date, created_at, patients(full_name)')
         .order('created_at', { ascending: false })
         .limit(2);
 
@@ -112,7 +114,8 @@ export function Dashboard({ onTabChange }: DashboardProps) {
           activities.push({
             action: a.status === 'completed' ? 'Appointment completed' : 'Appointment scheduled',
             name: patient?.full_name || 'Unknown',
-            time: getTimeAgo(new Date(a.appointment_date)),
+            time: getTimeAgo(new Date(a.created_at)),
+            timestamp: a.created_at,
             color: a.status === 'completed' ? 'bg-green-500' : 'bg-teal-500'
           });
         });
@@ -121,7 +124,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       // Get recent payments
       const { data: recentPayments } = await supabase
         .from('payments')
-        .select('amount, status, created_at')
+        .select('amount, total, status, created_at')
         .eq('status', 'paid')
         .order('created_at', { ascending: false })
         .limit(2);
@@ -130,15 +133,20 @@ export function Dashboard({ onTabChange }: DashboardProps) {
         recentPayments.forEach(p => {
           activities.push({
             action: 'Payment received',
-            name: `$${Number(p.amount).toFixed(2)}`,
+            name: `$${Number(p.total ?? p.amount ?? 0).toFixed(2)}`,
             time: getTimeAgo(new Date(p.created_at)),
+            timestamp: p.created_at,
             color: 'bg-emerald-500'
           });
         });
       }
 
-      // Sort by time and take first 5
-      setRecentActivity(activities.slice(0, 5));
+      // Merge the independently fetched streams into true newest-first order.
+      setRecentActivity(
+        activities
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 5),
+      );
     } catch (error) {
       console.error('Error fetching recent activity:', error);
     }
@@ -164,8 +172,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       icon: Users,
       gradient: 'from-blue-500 via-blue-600 to-indigo-600',
       bgGlow: 'bg-blue-500/20',
-      trend: '+12%',
-      trendUp: true,
+      meta: 'All-time total',
     },
     {
       title: "Today's Appointments",
@@ -173,8 +180,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       icon: Calendar,
       gradient: 'from-teal-500 via-cyan-500 to-teal-600',
       bgGlow: 'bg-teal-500/20',
-      trend: '+5%',
-      trendUp: true,
+      meta: 'For today',
     },
     {
       title: 'Total Revenue',
@@ -182,8 +188,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       icon: TrendingUp,
       gradient: 'from-emerald-500 via-green-500 to-emerald-600',
       bgGlow: 'bg-emerald-500/20',
-      trend: '+18%',
-      trendUp: true,
+      meta: 'Paid payments',
     },
     {
       title: 'Pending Payments',
@@ -191,8 +196,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
       icon: DollarSign,
       gradient: 'from-amber-500 via-orange-500 to-amber-600',
       bgGlow: 'bg-amber-500/20',
-      trend: '-8%',
-      trendUp: false,
+      meta: 'Outstanding balance',
     },
   ];
 
@@ -252,11 +256,7 @@ export function Dashboard({ onTabChange }: DashboardProps) {
                     <Icon className="w-5 h-5 text-white" />
                   </div>
                   {!loading && (
-                    <div className={`flex items-center gap-1 text-xs font-semibold ${stat.trendUp ? 'text-emerald-600' : 'text-red-500'
-                      }`}>
-                      {stat.trendUp ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                      {stat.trend}
-                    </div>
+                    <span className="text-xs font-medium text-gray-400">{stat.meta}</span>
                   )}
                 </div>
                 <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>

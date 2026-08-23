@@ -50,9 +50,9 @@ export function MedicalHistoryManagement() {
       setHistories(historiesRes.data || []);
       setPatients(patientsRes.data || []);
       setAppointments(appointmentsRes.data || []);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
-      alert(error.message || 'Failed to load medical history. Please try again.');
+    } catch (error: unknown) {
+      console.error('Error fetching medical history data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to load medical history. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -82,9 +82,9 @@ export function MedicalHistoryManagement() {
       });
       setShowForm(false);
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating medical history record:', error);
-      alert(error.message || 'Failed to create medical history record. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to create medical history record. Please try again.');
     } finally {
       setLoading(false);
     }

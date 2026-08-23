@@ -101,9 +101,9 @@ export function PatientManagement({ selectedPatientId }: PatientManagementProps)
       });
       setShowForm(false);
       await fetchPatients();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating patient:', error);
-      alert(error.message || 'Failed to create patient. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to create patient. Please try again.');
     } finally {
       setLoading(false);
     }

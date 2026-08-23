@@ -24,15 +24,17 @@ export function Login() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    if (!email.trim() || !password) {
+      setError('Enter your email and password to continue.');
+      return;
+    }
+
+    setLoading(true);
     try {
       await signIn(email, password);
-    } catch (err: any) {
-      console.error('Login error:', err);
-      // Show more specific error message
-      const message = err?.message || 'Invalid email or password. Please try again.';
-      setError(message);
+    } catch {
+      setError('Unable to sign in. Check your email and password and try again.');
     } finally {
       setLoading(false);
     }
@@ -169,6 +171,8 @@ export function Login() {
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-teal-500 transition-colors"
                     >
@@ -180,6 +184,8 @@ export function Login() {
                 {/* Error message */}
                 {error && (
                   <div
+                    role="alert"
+                    aria-live="polite"
                     className="bg-red-50/80 backdrop-blur-sm border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
                     style={{ animation: 'fadeIn 0.3s ease-out' }}
                   >
@@ -212,26 +218,15 @@ export function Login() {
                 </button>
               </form>
 
-              {/* Demo credentials */}
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <p className="text-xs text-center text-gray-400 mb-3">Demo Credentials</p>
-                <div className="flex justify-center gap-4 text-xs">
-                  <div className="px-3 py-2 rounded-lg bg-gray-50/80 border border-gray-100">
-                    <span className="text-gray-500">Email:</span>
-                    <span className="ml-1 font-mono text-gray-700">admin@clinic.com</span>
-                  </div>
-                  <div className="px-3 py-2 rounded-lg bg-gray-50/80 border border-gray-100">
-                    <span className="text-gray-500">Pass:</span>
-                    <span className="ml-1 font-mono text-gray-700">admin123</span>
-                  </div>
-                </div>
-              </div>
+              <p className="mt-8 pt-6 border-t border-gray-100 text-xs text-center text-gray-400">
+                Use the credentials provided by your clinic administrator.
+              </p>
             </div>
           </div>
 
           {/* Footer */}
           <p className="text-center text-xs text-gray-400 mt-6">
-            © 2024 DentalCare. Built with modern healthcare standards.
+            © 2026 DentalCare. Practice management for modern clinics.
           </p>
         </div>
       </div>
