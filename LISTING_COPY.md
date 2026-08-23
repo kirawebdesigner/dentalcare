@@ -1,43 +1,54 @@
-# DentalCare Marketplace Listing Copy
+# DentalCare — SideProjectors Listing Copy
 
-## Suggested title
+## Listing title
 
 **DentalCare — Full-Stack Dental Clinic Management System | React + TypeScript + Supabase**
 
-## Suggested asking price
+## Price
 
 **$999 negotiable**
 
 ## Short description
 
-DentalCare is a functional React + TypeScript + Supabase clinic-management platform for small dental practices. It includes authentication, role-based access for administrators, doctors, and receptionists, patient records, appointment scheduling, service management, payment tracking, a dashboard, doctor medical records, a Supabase migration with RLS policies, a staff-provisioning Edge Function, Firebase Hosting configuration, documentation, fictional demo data, and a buyer handoff runbook.
+DentalCare is a functional React + TypeScript + Supabase clinic-management foundation for developers, freelancers, agencies, or small clinic-software teams. It includes a Supabase-backed authentication flow, role-based workspaces for administrators, doctors, and receptionists, patient management, appointment scheduling, services, payments, dashboards, doctor medical records, RLS-backed database migrations, an administrator-only staff-provisioning Edge Function, Firebase Hosting configuration, and buyer handoff documentation.
 
-This is a valuable starting point for a developer or small agency that wants a working foundation rather than a blank project. The architecture is already established, the main workflows are implemented, and the repository has been audited for configuration, security, build, and documentation issues.
+The current live demo is available at [dentalcare-1.web.app](https://dentalcare-1.web.app/). It has been rebuilt and redeployed, the authenticated footer is current for 2026, and the accidental placeholder service was removed. The live database is intentionally empty: no real patients, appointments, payments, or medical records are included.
 
-## Included
+## Why this is valuable
 
-| Included item | Details |
+This is a practical starting point for a buyer who wants an established full-stack foundation instead of a blank repository. The main navigation, role boundaries, data model, deployment configuration, and core clinic workflows are already in place. The repository has also been audited and documented for handoff, including setup, testing, deployment, migration, security-history remediation, and buyer ownership-transfer guidance.
+
+## Included in the sale
+
+| Asset | Details |
 |---|---|
-| Source code | React, TypeScript, Vite, Tailwind CSS frontend |
-| Backend foundation | Supabase PostgreSQL schema, indexes, RLS policies, integrity triggers, and fictional service seed data |
-| Authentication | Supabase email/password session flow |
-| Staff provisioning | Supabase Edge Function for administrator-only staff creation |
-| Deployment | Firebase Hosting configuration with SPA rewrites and security headers |
-| Demo package | Synthetic Admin, Doctor, and Receptionist account instructions plus fictional patients, appointments, payments, and medical records |
-| Documentation | Setup, testing, migration, remediation, audit, history-security, and buyer-handoff guides |
+| Source repository | React, TypeScript, Vite, Tailwind CSS, Supabase client, and application components |
+| Database foundation | Supabase PostgreSQL migration, indexes, RLS policies, integrity triggers, and seeded service catalog |
+| Authentication | Supabase email/password session flow with role-aware navigation |
+| Staff provisioning | Administrator-only `create-staff` Supabase Edge Function source |
+| Deployment configuration | Firebase Hosting configuration with SPA rewrites and security headers |
+| Documentation | README, setup, testing, deployment, buyer handoff, audit, remediation, checklist, and asset-inventory documents |
+| Product screenshots | Clean live screenshots in [`sale-assets/screenshots/`](sale-assets/screenshots/) covering public login and Admin, Doctor, and Receptionist workflows |
+| Demo support | Synthetic role/account guidance and buyer-owned demo seeding materials; no live passwords are published |
+
+## Demonstrated workflows
+
+The live verification pass covered the Admin dashboard, staff roster, service catalog, empty patient and appointment views, Doctor schedule, Doctor medical records, Receptionist patients, Receptionist appointments, and Receptionist payments. The protected Admin-to-create-staff workflow was also tested with a disposable synthetic account, which was deleted after verification.
 
 ## Best fit
 
-The project is best suited to a developer, freelancer, agency, or small clinic software team that wants to customize and extend an existing foundation. It is not a turnkey regulated healthcare SaaS product.
+DentalCare is best suited to a developer, freelancer, agency, or small clinic-software team that wants to customize and extend an existing foundation. It is a side project and implementation base, not a turnkey regulated healthcare SaaS product.
 
 ## Important limitations
 
-The current package does not include an accountant role, full CRUD across every module, staff disable/reset-password screens, patient edit/delete screens, service edit/delete screens, refunds or partial payments, complete medical-record editing, reporting, settings, notifications, audit logs, compliance certification, or legal privacy documentation. The buyer must deploy and verify the backend in a buyer-owned environment before using real clinic data.
+The package does not claim HIPAA or GDPR certification, legal privacy documentation, clinical production readiness, real customers, real revenue, or compliance approval. Known product-scope limits include incomplete CRUD coverage in some modules, no accountant role, no complete staff disable/reset-password lifecycle, no reporting or audit-log subsystem, limited medical-record editing, and no formal privacy or compliance program.
 
-## Honest positioning
+A buyer must deploy the system and Supabase backend in a buyer-owned environment, rotate credentials, review the migration and RLS policies, configure Edge Function secrets and allowed origins, and complete their own legal, privacy, security, and clinical-readiness review before using real data.
 
-Do not claim HIPAA or GDPR certification, healthcare compliance, production clinical readiness, real customers, real revenue, an accountant role, complete ERP functionality, or a turnkey production deployment. Describe it as a **functional, security-cleaned side-project foundation with documented deployment and extension paths**.
+## Transfer terms
 
-## Delivery terms to define
+The sale should define whether the price includes the GitHub repository, Firebase project, Supabase project, domain, live demo environment, deployment assistance, customization hours, and post-sale support. Credentials and ownership transfers should be handled privately and securely; passwords and service-role keys must never appear in the public listing.
 
-The seller should specify whether the price includes the GitHub repository, Firebase project, Supabase project, domain, demo environment, deployment assistance, customization hours, and post-sale support. Credentials should be transferred only through a secure process and should not be included in the public listing.
+## Suggested call to action
+
+**Interested in a functional dental-clinic management foundation with the code, backend schema, Edge Function, deployment configuration, documentation, and screenshots already organized? Message me for the repository and buyer handoff package.**

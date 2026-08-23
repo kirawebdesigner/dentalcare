@@ -10,7 +10,7 @@ DentalCare is a functional **clinic-management prototype** with a credible core 
 
 Before cleanup, the repository was **not buyer-ready**. It exposed a live-looking Supabase configuration and a known default password in source, displayed the same credentials in the login UI, contained contradictory setup documents, depended on an Edge Function that the documentation denied or described incorrectly, had an unusable lint gate, and claimed more role and CRUD coverage than the code actually delivered.
 
-After the focused remediation in this audit, the repository’s **typecheck, lint, production build, and diff checks pass**. The cleaned local production preview mounts successfully, shows a bounded Supabase configuration warning when no `.env` is present, no longer displays demo credentials, and uses the corrected 2026 footer. The historical Firebase deployment remains an older build and has **not** been redeployed by this audit.
+After the focused remediation and final sale pass, the repository’s **typecheck, lint, production build, and diff checks pass**. The live Firebase deployment was rebuilt with the current public Supabase configuration, redeployed successfully, presents the corrected 2026 footer, and returns the configured security headers. The live Supabase-backed workspace and the protected staff-provisioning path were verified with synthetic accounts only.
 
 > **Overall assessment:** Saleable as a cleaned-up side project after a buyer-owned deployment and security handoff, but not honestly marketable as production-ready healthcare software until the remaining verification, privacy, and operational work is completed.
 
@@ -19,11 +19,11 @@ After the focused remediation in this audit, the repository’s **typecheck, lin
 | Dimension | Assessment | Score |
 |---|---|---:|
 | Existing product functionality | Core screens and happy-path workflows exist, but CRUD and reporting are partial | 6/10 |
-| Backend and authorization | Supabase schema, RLS, constraints, and provisioning path exist; live verification remains outstanding | 6/10 |
-| Security and configuration | Current tree is materially safer; historical Git/live deployment exposure remains | 6/10 |
+| Backend and authorization | Supabase schema, RLS, constraints, and provisioning path exist; live role and staff-provisioning checks passed | 7/10 |
+| Security and configuration | Current tree is materially safer; historical Git exposure and credential rotation remain buyer/owner responsibilities | 6/10 |
 | UX and presentation | Visually coherent and responsive at a prototype level; minor accessibility and error-feedback debt remains | 7/10 |
 | Documentation and handoff | Rewritten and much more accurate; buyer-owned deployment steps remain necessary | 7/10 |
-| Deployment readiness | Firebase target is reusable, but the live site is stale and the Edge Function must be configured | 4/10 |
+| Deployment readiness | Firebase Hosting was redeployed and the live Edge Function path was verified; buyer-owned redeployment and secrets remain required for transfer | 7/10 |
 | **Overall buyer-readiness** | **Reasonably listable after explicit limitations and deployment handoff; not production-ready** | **6/10** |
 
 ## What was already present and working by inspection
@@ -40,7 +40,7 @@ The core workflows are present in code, but most are **partial CRUD** rather tha
 | Critical | The login UI, migration, and documentation published a known default account/password. | Fixed in the current tree: runtime UI, migration, and tracked docs no longer publish it. Historical Git exposure still requires rotation and possibly history cleanup. |
 | High | The migration provisioned a default administrator and contained password-verification SQL that did not match the actual Supabase Auth login flow. | Fixed: known-password bootstrap and obsolete password functions removed; first admin provisioning is now a secure handoff step. |
 | High | Staff creation actually depended on `supabase/functions/create-staff`, while documents described an RPC or no custom Edge Function. | Fixed: documentation now reflects the Edge Function; the function was hardened and its required secrets/origin configuration documented. |
-| High | Edge Function CORS allowed every origin and client responses exposed raw internal error messages. | Fixed in source: exact configured origins are used and client errors are sanitized. Deployment still needs to be updated. |
+| High | Edge Function CORS allowed every origin and client responses exposed raw internal error messages. | Fixed in source: exact configured origins are used and client errors are sanitized. The live Admin-to-create-staff path was verified end to end. |
 | High | A user could update their own `profiles` row under the old policy, creating a role-escalation risk if the role field was modified through a direct request. | Fixed in the migration: self-update policy removed; administrator management remains the intended profile-change path. |
 | High | Doctor-facing patient, appointment, and medical-record access was broader than the product claims. | Fixed in the migration: doctor reads and writes are scoped to assigned appointments/patients and recorded clinical records. Buyer-owned Supabase verification is still required. |
 | Medium | Payment totals used `amount` even though the schema provides a generated `total`, and the UI did not verify that an optional appointment belonged to the selected patient. | Fixed in frontend and migration: generated totals are used; UI and database validation enforce patient/appointment consistency. |
@@ -48,7 +48,7 @@ The core workflows are present in code, but most are **partial CRUD** rather tha
 | Medium | Global search interpolated user input into a PostgREST `.or()` expression. | Fixed: separate parameterized `ilike` queries and stale-result protection are used. |
 | Medium | CSS emitted an import-order warning and animations did not respect reduced-motion preferences. | Fixed: font import moved to the top and reduced-motion handling added. |
 | Medium | ESLint failed before analyzing source due to an outdated TypeScript-ESLint compatibility combination. | Fixed: TypeScript-ESLint was upgraded and legacy explicit-`any` errors were removed. |
-| Low | HTML metadata was minimal and the live deployment lacked the new security headers. | Fixed in source/config; must be redeployed to take effect. |
+| Low | HTML metadata was minimal and the historical deployment lacked the new security headers. | Fixed in source/config; the current Firebase deployment now returns the configured security headers. |
 
 ## Backend, database, and roles
 
@@ -83,11 +83,11 @@ Remaining UX debt includes browser `alert()` usage for many errors, limited inli
 
 ## Deployment findings
 
-The historical deployment at [dentalcare-1.web.app][5] was reachable over HTTPS and loaded a login screen. Browser inspection showed that it still rendered the old demo-credential panel and 2024 footer. The deployment therefore represents an older build than the cleaned repository. A read-only HTTP check returned `HTTP/2 200`; the new Firebase security headers were absent, which is consistent with the source changes not having been deployed.
+The deployment at [dentalcare-1.web.app][5] was rebuilt and redeployed to Firebase project `dentalcare-1` after the final source polish. A cache-busted browser verification showed the connected Supabase-backed workspace, the current 2026 footer, the cleaned services catalog, role-specific empty states, and no demo-credential panel. A read-only HTTP check returned `HTTP/2 200` with HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` headers.
 
-The cleaned local production preview mounted successfully at `http://localhost:4173/`. Without a local `.env`, it displayed a safe Supabase configuration warning, login form, administrator-provided-credentials notice, and 2026 footer. The dev-server browser harness initially showed a blank mount, but direct module delivery was healthy and the production preview provided a successful smoke test; this should still be rechecked in a normal local browser before release. [6]
+The final live browser pass authenticated the existing synthetic Admin, Doctor, and Receptionist accounts. The Admin dashboard, staff roster, services, patients, appointments, and payments views; the Doctor schedule and medical records views; and the Receptionist patients, appointments, and payments views all loaded. The protected `create-staff` Edge Function returned HTTP 200 with `success=true` for a disposable synthetic staff account, which was deleted after the test.
 
-No Firebase or Supabase deployment was performed during this audit. Deployment is an external ownership-sensitive action and requires the buyer’s correct project, environment variables, Edge Function secrets, and origin configuration.
+Firebase Hosting was redeployed during the final sale pass using the current public frontend configuration. The buyer still must deploy and verify the backend in a buyer-owned environment, rotate credentials, configure Edge Function secrets and allowed origins, and complete their own privacy, security, and clinical-readiness review.
 
 ## Verification results
 
@@ -101,8 +101,8 @@ No Firebase or Supabase deployment was performed during this audit. Deployment i
 | Current-tree credential-pattern scan | Zero matches |
 | Historical credential-pattern scan | One prior commit contains a match; rotate/rewrite decision remains |
 | Local production preview | Passed unauthenticated smoke test |
-| Historical Firebase URL | Reachable, but stale old build; not redeployed |
-| Authenticated/RLS end-to-end tests | Not completed; buyer-owned Supabase credentials and synthetic accounts required |
+| Current Firebase URL | Reachable; redeployed build verified with current footer, connected Supabase workspace, and security headers |
+| Authenticated/RLS end-to-end tests | Live synthetic-role login and Admin staff-provisioning smoke test completed; buyer-owned full RLS review remains required |
 
 ## Files changed
 
